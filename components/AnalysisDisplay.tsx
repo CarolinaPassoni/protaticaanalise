@@ -410,7 +410,11 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ analysis }) => {
           <div className="print:hidden">
             <SectionTitle>Mapa de Calor (terços)</SectionTitle>
             <div className="mt-3">
+              {analysis.estatisticas?.mapaDeCalor?.timeA && analysis.estatisticas?.mapaDeCalor?.timeB ? (
               <HeatmapDisplay data={analysis.estatisticas.mapaDeCalor} timeA={analysis.timeA} timeB={analysis.timeB} />
+            ) : (
+              <p className="text-yellow-100/60 print:text-black">Mapa de calor indisponível.</p>
+            )}
             </div>
           </div>
           <div>

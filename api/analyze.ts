@@ -31,9 +31,7 @@ const fetchYouTubeOEmbed = async (
   youtubeUrl: string
 ): Promise<{ title?: string; author_name?: string } | null> => {
   try {
-    const endpoint = `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(
-      youtubeUrl
-    )}`;
+    const endpoint = `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(youtubeUrl)}`;
     const r = await fetch(endpoint);
     if (!r.ok) return null;
     const data = await r.json();
@@ -55,11 +53,7 @@ const parseJsonResponse = <T,>(text: string): T | null => {
 };
 
 const normalizeTitle = (s: string) =>
-  s
-    .trim()
-    .toLowerCase()
-    .replace(/[\u200B-\u200D\uFEFF]/g, "")
-    .replace(/\s+/g, " ");
+  s.trim().toLowerCase().replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\s+/g, " ");
 
 const titlesLooselyMatch = (a: string, b: string): boolean => {
   const t1 = normalizeTitle(a);
@@ -69,43 +63,34 @@ const titlesLooselyMatch = (a: string, b: string): boolean => {
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return res.status(500).json({
-      error:
-        "GEMINI_API_KEY não configurada no servidor (Vercel). Adicione a variável e redeploy.",
+      error: "GEMINI_API_KEY não configurada no servidor (Vercel). Adicione a variável e redeploy.",
     });
   }
 
   try {
     const { type, url, mode, frames } = req.body || {};
-
     const ai = new GoogleGenAI({ apiKey });
     const model = "gemini-3-pro-preview";
 
-    // ===== URL (YouTube) =====
     if ((type ?? "url") === "url") {
-      if (!url || typeof url !== "string") {
-        return res.status(400).json({ error: "URL inválida." });
-      }
+      if (!url || typeof url !== "string") return res.status(400).json({ error: "URL inválida." });
 
       const expectedVideoId = extractYouTubeId(url);
       if (!expectedVideoId) {
         return res.status(400).json({
-          error:
-            "Link do YouTube inválido ou sem videoId. Cole a URL completa (ex: https://www.youtube.com/watch?v=XXXX).",
+          error: "Link do YouTube inválido ou sem videoId. Cole a URL completa (ex: https://www.youtube.com/watch?v=XXXX).",
         });
       }
 
       const oembed = await fetchYouTubeOEmbed(url);
       if (!oembed?.title) {
         return res.status(400).json({
-          error:
-            "Não foi possível validar esse vídeo pelo YouTube (oEmbed). Verifique se o link está correto e público.",
+          error: "Não foi possível validar esse vídeo pelo YouTube (oEmbed). Verifique se o link está correto e público.",
         });
       }
 
@@ -134,26 +119,58 @@ Retorne JSON contendo "error":
 
 MODO: ${isDetailed ? "DETALHADO" : "RÁPIDO"}
 
-SAÍDA (JSON):
+SAÍDA (JSON) — NÃO omita campos:
 {
   "videoTitle": "TÍTULO EXATO DO VÍDEO",
   "videoUrl": "${url}",
   "videoId": "${expectedVideoId}",
+
   "timeA": "",
   "timeB": "",
   "placar": "",
   "resumoPartida": "",
   "momentosChave": "",
+
   "contextoPartida": { "competicao":"", "temporada":"", "fase":"", "dataJogo":"", "estadio":"", "cidade":"" },
-  "formacoes": { "timeA": { "esquema":"", "titulares":[], "banco":[], "destaquesFuncionais":"" }, "timeB": { "esquema":"", "titulares":[], "banco":[], "destaquesFuncionais":"" } },
-  "faseDefensiva": { "timeA": { "posicionamento":"", "compactacao_pressao":"", "transicao":"" }, "timeB": { "posicionamento":"", "compactacao_pressao":"", "transicao":"" } },
-  "faseOfensiva": { "timeA": { "saidaDeBola":"", "criacao":"", "finalizacao_movimentacao":"" }, "timeB": { "saidaDeBola":"", "criacao":"", "finalizacao_movimentacao":"" } },
+
+  "formacoes": {
+    "timeA": { "esquema":"", "titulares":[], "banco":[], "destaquesFuncionais":"" },
+    "timeB": { "esquema":"", "titulares":[], "banco":[], "destaquesFuncionais":"" }
+  },
+
+  "faseDefensiva": {
+    "timeA": { "posicionamento":"", "compactacao_pressao":"", "transicao":"" },
+    "timeB": { "posicionamento":"", "compactacao_pressao":"", "transicao":"" }
+  },
+
+  "faseOfensiva": {
+    "timeA": { "saidaDeBola":"", "criacao":"", "finalizacao_movimentacao":"" },
+    "timeB": { "saidaDeBola":"", "criacao":"", "finalizacao_movimentacao":"" }
+  },
+
   "estrategiaComportamento": { "controleRitmoAdaptacao":"", "bolasParadas":"" },
-  "estatisticas": { "posseDeBola": { "timeA":"", "timeB":"" }, "finalizacoes": { "timeA":"", "timeB":"" }, "finalizacoesNoAlvo": { "timeA":"", "timeB":"" } },
+
+  "estatisticas": {
+    "posseDeBola": { "timeA":"", "timeB":"" },
+    "finalizacoes": { "timeA":"", "timeB":"" },
+    "finalizacoesNoAlvo": { "timeA":"", "timeB":"" },
+    "passesCertos": { "timeA":"", "timeB":"" },
+    "faltasCometidas": { "timeA":"", "timeB":"" },
+    "desarmes": { "timeA":"", "timeB":"" },
+    "escanteios": { "timeA":"", "timeB":"" },
+    "impedimentos": { "timeA":"", "timeB":"" },
+    "mapaDeCalor": {
+      "timeA": { "tercoDefensivo":"", "tercoMedio":"", "tercoOfensivo":"" },
+      "timeB": { "tercoDefensivo":"", "tercoMedio":"", "tercoOfensivo":"" }
+    }
+  },
+
   "pontosFortes": { "timeA": [], "timeB": [] },
   "pontosFracos": { "timeA": [], "timeB": [] },
+
   "analiseJogadores": [],
   "conclusaoRecomendacoes": "",
+
   "verificacaoAuditoria": { "partidaIdentificada":"", "fontesPrincipais":[], "observacoes":"", "nivelConfianca":"alta | media | baixa" }
 }
 `;
@@ -161,42 +178,23 @@ SAÍDA (JSON):
       const response = await ai.models.generateContent({
         model,
         contents: prompt,
-        config: {
-          tools: [{ googleSearch: {} }],
-          thinkingConfig: { thinkingBudget: 6000 },
-        },
+        config: { tools: [{ googleSearch: {} }], thinkingConfig: { thinkingBudget: 6000 } },
       });
 
       const analysis = parseJsonResponse<any>(response.text);
+      if (!analysis) return res.status(500).json({ error: "Falha ao processar resposta do modelo." });
+      if (analysis.error) return res.status(400).json({ error: analysis.error });
 
-      if (!analysis) {
-        return res.status(500).json({ error: "Falha ao processar resposta do modelo." });
-      }
-      if (analysis.error) {
-        return res.status(400).json({ error: analysis.error });
-      }
-
-      // hard-guards finais
       analysis.videoUrl = url;
 
       if (!analysis.videoId || analysis.videoId !== expectedVideoId) {
-        return res.status(400).json({
-          error:
-            "Bloqueado: o modelo retornou um vídeo diferente do solicitado (videoId inconsistente).",
-        });
+        return res.status(400).json({ error: "Bloqueado: videoId inconsistente (anti troca de vídeo)." });
       }
 
-      if (
-        typeof analysis.videoTitle !== "string" ||
-        !titlesLooselyMatch(oembed.title, analysis.videoTitle)
-      ) {
-        return res.status(400).json({
-          error:
-            "Bloqueado: o título retornado não corresponde ao vídeo informado (anti troca de vídeo).",
-        });
+      if (typeof analysis.videoTitle !== "string" || !titlesLooselyMatch(oembed.title, analysis.videoTitle)) {
+        return res.status(400).json({ error: "Bloqueado: título não corresponde ao vídeo (anti troca de vídeo)." });
       }
 
-      // fontes
       const sources: GroundingSource[] = [];
       const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
       if (chunks) {
@@ -204,19 +202,15 @@ SAÍDA (JSON):
           if (chunk.web && chunk.web.uri) sources.push({ title: chunk.web.title, uri: chunk.web.uri });
         });
       }
-      analysis.sources = [
-        { title: "YouTube (vídeo analisado)", uri: url },
-        ...sources,
-      ].filter((s, i, arr) => i === arr.findIndex((x) => x.uri === s.uri));
+      analysis.sources = [{ title: "YouTube (vídeo analisado)", uri: url }, ...sources].filter(
+        (s, i, arr) => i === arr.findIndex((x) => x.uri === s.uri)
+      );
 
       return res.status(200).json({ analysis });
     }
 
-    // ===== FILE (frames base64) opcional =====
     if (type === "file") {
-      if (!Array.isArray(frames) || frames.length === 0) {
-        return res.status(400).json({ error: "Frames inválidos." });
-      }
+      if (!Array.isArray(frames) || frames.length === 0) return res.status(400).json({ error: "Frames inválidos." });
 
       const imageParts = frames.slice(0, 20).map((data: string) => ({
         inlineData: { mimeType: "image/jpeg", data },
@@ -226,10 +220,7 @@ SAÍDA (JSON):
         model,
         contents: {
           parts: [
-            {
-              text: `Você é um analista tático. A partir dos frames, identifique a partida e gere um JSON.
-Se não for possível identificar com confiança, retorne {"error":"Incapaz de identificar a partida a partir do arquivo."}.`,
-            },
+            { text: `Você é um analista tático. A partir dos frames, identifique a partida e gere um JSON. Se não for possível, retorne {"error":"Incapaz de identificar a partida a partir do arquivo."}.` },
             ...imageParts,
           ],
         },
