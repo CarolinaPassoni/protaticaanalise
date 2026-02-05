@@ -3,25 +3,40 @@ import { GoogleGenAI } from "@google/genai";
 
 type GroundingSource = { title: string; uri: string };
 
-const extractYouTubeId = (url: string): string | null => {
+const extractYouTubeId = (rawUrl: string): string | null => {
   try {
-    const u = new URL(url);
+    // Alguns apps/mobile compartilham sem protocolo. Ex.: "www.youtube.com/watch?v=..."
+    const safeUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
+    const u = new URL(safeUrl);
+
+    // 1) Formato mais comum: /watch?v=VIDEO_ID
     const v = u.searchParams.get("v");
     if (v) return v;
 
+    // 2) Encurtado: youtu.be/VIDEO_ID
     if (u.hostname.endsWith("youtu.be")) {
       const id = u.pathname.split("/").filter(Boolean)[0];
       return id || null;
     }
 
+    // 3) Caminhos alternativos (inclui links que o celular costuma gerar):
+    //    /shorts/VIDEO_ID
+    //    /embed/VIDEO_ID
+    //    /live/VIDEO_ID
+    //    /v/VIDEO_ID
     const parts = u.pathname.split("/").filter(Boolean);
-    const shortsIdx = parts.indexOf("shorts");
-    if (shortsIdx >= 0 && parts[shortsIdx + 1]) return parts[shortsIdx + 1];
+    const pickAfter = (segment: string) => {
+      const idx = parts.indexOf(segment);
+      return idx >= 0 && parts[idx + 1] ? parts[idx + 1] : null;
+    };
 
-    const embedIdx = parts.indexOf("embed");
-    if (embedIdx >= 0 && parts[embedIdx + 1]) return parts[embedIdx + 1];
-
-    return null;
+    return (
+      pickAfter("shorts") ||
+      pickAfter("embed") ||
+      pickAfter("live") ||
+      pickAfter("v") ||
+      null
+    );
   } catch {
     return null;
   }
